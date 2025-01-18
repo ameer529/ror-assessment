@@ -61,17 +61,37 @@ class BlogsController < ApplicationController
     end
   end
 
+  # def import
+  #   file = params[:attachment]
+  #   data = CSV.parse(file.to_io, headers: true, encoding: 'utf8')
+  #   # Start code to handle CSV data
+  #   ActiveRecord::Base.transaction do
+  #     data.each do |row|
+  #       current_user.blogs.create!(row.to_h)
+  #     end
+  #   end
+  #   # End code to handle CSV data
+  #   redirect_to blogs_path
+  # end
+
   def import
-    file = params[:attachment]
-    data = CSV.parse(file.to_io, headers: true, encoding: 'utf8')
-    # Start code to handle CSV data
-    ActiveRecord::Base.transaction do
-      data.each do |row|
-        current_user.blogs.create!(row.to_h)
+    begin
+      file = params[:attachment]
+      data = CSV.parse(file.to_io, headers: true, encoding: 'utf8')
+      batch_size = 10000
+      data.each_slice(batch_size) do |batch|
+        blogs = batch.map { |row| current_user.blogs.new(row.to_h) }
+        Blog.import(blogs, validate: true) # Bulk insert
       end
+      redirect_to blogs_path, notice: "Blogs were successfully imported."
+    rescue CSV::MalformedCSVError => e
+      # Handles invalid CSV file formatting
+      redirect_to blogs_path, notice: "CSV file is invalid: #{e.message}"
+      Rails.logger.info e.backtrace.first(10).join("\n")
+    rescue StandardError => e
+      redirect_to blogs_path, notice: "An unexpected error occurred: #{e.message}"
+      Rails.logger.info e.backtrace.first(10).join("\n")
     end
-    # End code to handle CSV data
-    redirect_to blogs_path
   end
 
   private

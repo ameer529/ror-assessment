@@ -76,3 +76,4 @@ group :test do
 end
 gem 'devise'
 gem 'pagy'
+gem 'activerecord-import' #bulk inserts into the database using a single SQL INSERT statement

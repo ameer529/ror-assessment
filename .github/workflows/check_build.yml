@@ -1,0 +1,63 @@
+name: CI Build Check
+on: [push]
+
+jobs:
+  tests:
+    name: Tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:12
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_DB: ror_assessment
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: --health-cmd pg_isready --health-interval 4s --health-timeout 2s --health-retries 10
+
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - run: echo "Code has been checked out."
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+      - run: echo "Ruby environment has been set up."
+
+      - name: Ruby gem cache
+        uses: actions/cache@v2
+        with:
+          path: vendor/bundle
+          key: ${{ runner.os }}-gems-${{ hashFiles('**/Gemfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-gems-
+      - run: echo "Ruby gem cache step completed."
+
+      - name: Install gems
+        run: |
+          echo "Starting to install gems..."
+          bundle config path vendor/bundle
+          bundle install --jobs 4 --retry 3
+      - run: echo "Gems installation completed."
+
+      - name: Get yarn cache directory path
+        id: yarn-cache-dir-path
+        run: echo "dir=$(yarn cache dir)" >> $GITHUB_OUTPUT
+      - run: echo "Yarn cache directory path set."
+
+      - name: Setup
+        run: |
+          echo "Running setup script..."
+          bin/setup
+      - run: echo "Setup script completed."
+
+      - name: Run tests
+        run: |
+          echo "Running tests..."
+          bin/rspec
+      - run: echo "Tests completed."
